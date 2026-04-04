@@ -1,0 +1,45 @@
+name: Build Fabric Server Pack
+
+on:
+  workflow_dispatch:
+    inputs:
+      python-version:
+        description: Python version to use
+        required: false
+        default: '3.11'
+      java-version:
+        description: Java version to use for Fabric bootstrap
+        required: false
+        default: '21'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ github.event.inputs.python-version }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ github.event.inputs.java-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build Fabric server bundle
+        run: python scripts/build_fabric_server.py
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: minecraft-fabric-server-bundle
+          path: output/server-bundle
