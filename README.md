@@ -58,6 +58,7 @@ Release bundles are immutable snapshots. Persistent Minecraft data is **not** st
 ## Optional GitHub Variables
 
 - `DO_SSH_KEY_FINGERPRINTS_JSON` (optional, recommended): either a JSON list of existing DigitalOcean SSH key fingerprints (for example `["fp1","fp2"]`) or a single fingerprint string.
+- `DO_SSH_KEY_FINGERPRINTS_JSON` (optional, recommended): JSON list of existing DigitalOcean SSH key fingerprints.
 
 Terraform also supports registering SSH public keys directly via `ssh_public_keys` if you prefer that route.
 
@@ -178,3 +179,10 @@ On each deploy:
 ## Next cleanup step (safe follow-up)
 
 - Consolidate `scripts/build_server.py` and `scripts/build_fabric_server.py` behind one CLI entrypoint, with Fabric as default, after adding regression tests for current Fabric behavior.
+Config-driven Minecraft server pack builder with Docker support, mod manifest support, and a GitHub Actions workflow for push-button packaging.
+
+## Planning
+
+See the staged repo cleanup and deployment plan here:
+
+- [REPO-CLEANUP-AND-DEPLOYMENT-PLAN.md](REPO-CLEANUP-AND-DEPLOYMENT-PLAN.md)

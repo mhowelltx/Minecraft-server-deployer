@@ -99,6 +99,7 @@ jobs:
               "allowed_ssh_cidrs": split_csv(os.environ["INPUT_ALLOWED_SSH_CIDRS"]),
               "allowed_minecraft_cidrs": split_csv(os.environ["INPUT_ALLOWED_MINECRAFT_CIDRS"]),
               "ssh_key_fingerprints": parse_fingerprints(os.environ["INPUT_SSH_KEY_FINGERPRINTS_JSON"]),
+              "ssh_key_fingerprints": json.loads(os.environ["INPUT_SSH_KEY_FINGERPRINTS_JSON"]),
           }
 
           with open("terraform.auto.tfvars.json", "w", encoding="utf-8") as f:
