@@ -7,6 +7,8 @@ terraform {
       version = "~> 2.40"
     }
   }
+
+  backend "local" {}
 }
 
 provider "digitalocean" {
