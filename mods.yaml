@@ -1,0 +1,15 @@
+mods:
+  # Example Modrinth mods. Replace versions/slugs as needed.
+  - name: "fabric-api"
+    source: "modrinth"
+    project_id: "P7dR8mSH"
+    version_id: ""
+    filename: ""
+    required: true
+
+  - name: "lithium"
+    source: "modrinth"
+    project_id: "gvQqBUqZ"
+    version_id: ""
+    filename: ""
+    required: false
