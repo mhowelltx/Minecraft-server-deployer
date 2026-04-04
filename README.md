@@ -178,3 +178,10 @@ On each deploy:
 ## Next cleanup step (safe follow-up)
 
 - Consolidate `scripts/build_server.py` and `scripts/build_fabric_server.py` behind one CLI entrypoint, with Fabric as default, after adding regression tests for current Fabric behavior.
+Config-driven Minecraft server pack builder with Docker support, mod manifest support, and a GitHub Actions workflow for push-button packaging.
+
+## Planning
+
+See the staged repo cleanup and deployment plan here:
+
+- [REPO-CLEANUP-AND-DEPLOYMENT-PLAN.md](REPO-CLEANUP-AND-DEPLOYMENT-PLAN.md)
