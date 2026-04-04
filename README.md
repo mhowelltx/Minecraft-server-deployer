@@ -57,6 +57,7 @@ Release bundles are immutable snapshots. Persistent Minecraft data is **not** st
 
 ## Optional GitHub Variables
 
+- `DO_SSH_KEY_FINGERPRINTS_JSON` (optional, recommended): either a JSON list of existing DigitalOcean SSH key fingerprints (for example `["fp1","fp2"]`) or a single fingerprint string.
 - `DO_SSH_KEY_FINGERPRINTS_JSON` (optional, recommended): JSON list of existing DigitalOcean SSH key fingerprints.
 
 Terraform also supports registering SSH public keys directly via `ssh_public_keys` if you prefer that route.

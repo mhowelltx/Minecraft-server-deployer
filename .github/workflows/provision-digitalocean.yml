@@ -80,6 +80,15 @@ jobs:
           def split_csv(value: str):
               return [item.strip() for item in value.split(',') if item.strip()]
 
+          def parse_fingerprints(value: str):
+              raw = (value or "").strip()
+              if not raw:
+                  return []
+              if raw.startswith("["):
+                  return json.loads(raw)
+              # Accept single fingerprint or comma-separated fingerprints as a convenience.
+              return split_csv(raw)
+
           tfvars = {
               "server_name": os.environ["INPUT_SERVER_NAME"],
               "server_size": os.environ["INPUT_SERVER_SIZE"],
@@ -89,6 +98,7 @@ jobs:
               "volume_size": int(os.environ["INPUT_VOLUME_SIZE"]),
               "allowed_ssh_cidrs": split_csv(os.environ["INPUT_ALLOWED_SSH_CIDRS"]),
               "allowed_minecraft_cidrs": split_csv(os.environ["INPUT_ALLOWED_MINECRAFT_CIDRS"]),
+              "ssh_key_fingerprints": parse_fingerprints(os.environ["INPUT_SSH_KEY_FINGERPRINTS_JSON"]),
               "ssh_key_fingerprints": json.loads(os.environ["INPUT_SSH_KEY_FINGERPRINTS_JSON"]),
           }
 
