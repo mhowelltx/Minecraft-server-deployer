@@ -1,0 +1,14 @@
+server_name = "minecraft-fabric-dev"
+server_size = "s-2vcpu-4gb"
+image = "ubuntu-24-04-x64"
+region = "nyc3"
+enable_volume = true
+volume_size = 50
+ssh_key_fingerprints = ["aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"]
+allowed_ssh_cidrs = ["203.0.113.10/32"]
+allowed_minecraft_cidrs = ["0.0.0.0/0", "::/0"]
+
+# Optional: if you want Terraform to register key(s) for you
+# ssh_public_keys = {
+#   "github-actions-deploy" = "ssh-ed25519 AAAA..."
+# }

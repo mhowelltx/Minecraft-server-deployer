@@ -1,0 +1,134 @@
+name: Provision DigitalOcean Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment
+        type: choice
+        options: [dev, prod]
+        default: dev
+      server_name:
+        description: Droplet name
+        required: false
+        default: minecraft-fabric
+      server_size:
+        description: DigitalOcean size slug
+        required: false
+        default: s-2vcpu-4gb
+      region:
+        description: DigitalOcean region
+        required: false
+        default: nyc3
+      image:
+        description: Droplet image slug
+        required: false
+        default: ubuntu-24-04-x64
+      enable_volume:
+        description: Create and attach persistent volume
+        type: boolean
+        default: false
+      volume_size:
+        description: Volume size in GB when enabled
+        required: false
+        default: '50'
+      allowed_ssh_cidrs:
+        description: Comma-separated CIDRs allowed for SSH
+        required: false
+        default: 0.0.0.0/0,::/0
+      allowed_minecraft_cidrs:
+        description: Comma-separated CIDRs allowed for Minecraft 25565/TCP
+        required: false
+        default: 0.0.0.0/0,::/0
+      auto_apply:
+        description: Automatically apply Terraform plan
+        type: boolean
+        default: true
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    env:
+      TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Render terraform.auto.tfvars.json
+        working-directory: infra/terraform
+        env:
+          INPUT_SERVER_NAME: ${{ github.event.inputs.server_name }}
+          INPUT_SERVER_SIZE: ${{ github.event.inputs.server_size }}
+          INPUT_REGION: ${{ github.event.inputs.region }}
+          INPUT_IMAGE: ${{ github.event.inputs.image }}
+          INPUT_ENABLE_VOLUME: ${{ github.event.inputs.enable_volume }}
+          INPUT_VOLUME_SIZE: ${{ github.event.inputs.volume_size }}
+          INPUT_ALLOWED_SSH_CIDRS: ${{ github.event.inputs.allowed_ssh_cidrs }}
+          INPUT_ALLOWED_MINECRAFT_CIDRS: ${{ github.event.inputs.allowed_minecraft_cidrs }}
+          INPUT_SSH_KEY_FINGERPRINTS_JSON: ${{ vars.DO_SSH_KEY_FINGERPRINTS_JSON || '[]' }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          def split_csv(value: str):
+              return [item.strip() for item in value.split(',') if item.strip()]
+
+          tfvars = {
+              "server_name": os.environ["INPUT_SERVER_NAME"],
+              "server_size": os.environ["INPUT_SERVER_SIZE"],
+              "region": os.environ["INPUT_REGION"],
+              "image": os.environ["INPUT_IMAGE"],
+              "enable_volume": os.environ["INPUT_ENABLE_VOLUME"].lower() == "true",
+              "volume_size": int(os.environ["INPUT_VOLUME_SIZE"]),
+              "allowed_ssh_cidrs": split_csv(os.environ["INPUT_ALLOWED_SSH_CIDRS"]),
+              "allowed_minecraft_cidrs": split_csv(os.environ["INPUT_ALLOWED_MINECRAFT_CIDRS"]),
+              "ssh_key_fingerprints": json.loads(os.environ["INPUT_SSH_KEY_FINGERPRINTS_JSON"]),
+          }
+
+          with open("terraform.auto.tfvars.json", "w", encoding="utf-8") as f:
+              json.dump(tfvars, f, indent=2)
+          PY
+
+      - name: Terraform init
+        working-directory: infra/terraform
+        run: |
+          mkdir -p state
+          terraform init -backend-config="path=state/${{ github.event.inputs.environment }}.tfstate"
+
+      - name: Terraform validate
+        working-directory: infra/terraform
+        run: terraform validate
+
+      - name: Terraform plan
+        working-directory: infra/terraform
+        run: terraform plan -out=tfplan
+
+      - name: Terraform apply
+        if: ${{ github.event.inputs.auto_apply == 'true' }}
+        working-directory: infra/terraform
+        run: terraform apply -auto-approve tfplan
+
+      - name: Export Terraform outputs
+        if: ${{ github.event.inputs.auto_apply == 'true' }}
+        working-directory: infra/terraform
+        run: |
+          terraform output -json > state/outputs-${{ github.event.inputs.environment }}.json
+          mkdir -p state/export
+          cp "state/${{ github.event.inputs.environment }}.tfstate" "state/export/${{ github.event.inputs.environment }}.tfstate"
+          cp "state/outputs-${{ github.event.inputs.environment }}.json" "state/export/outputs-${{ github.event.inputs.environment }}.json"
+          cp terraform.auto.tfvars.json state/export/terraform.auto.tfvars.json
+
+      - name: Upload Terraform state artifact
+        if: ${{ github.event.inputs.auto_apply == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-state-${{ github.event.inputs.environment }}
+          path: infra/terraform/state/export/*
+          retention-days: 14

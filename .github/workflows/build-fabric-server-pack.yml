@@ -3,14 +3,22 @@ name: Build Fabric Server Pack
 on:
   workflow_dispatch:
     inputs:
-      python-version:
+      python_version:
         description: Python version to use
         required: false
         default: '3.11'
-      java-version:
+      java_version:
         description: Java version to use for Fabric bootstrap
         required: false
         default: '21'
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/**'
+      - 'server-config.yaml'
+      - 'mods.yaml'
+      - 'requirements.txt'
 
 jobs:
   build:
@@ -22,13 +30,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ github.event.inputs.python-version }}
+          python-version: ${{ github.event.inputs.python_version || '3.11' }}
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ github.event.inputs.java-version }}
+          java-version: ${{ github.event.inputs.java_version || '21' }}
 
       - name: Install dependencies
         run: |
@@ -38,8 +46,16 @@ jobs:
       - name: Build Fabric server bundle
         run: python scripts/build_fabric_server.py
 
-      - name: Upload bundle artifact
+      - name: Upload bundle artifact (latest)
         uses: actions/upload-artifact@v4
         with:
           name: minecraft-fabric-server-bundle
           path: output/server-bundle
+          retention-days: 14
+
+      - name: Upload bundle artifact (commit specific)
+        uses: actions/upload-artifact@v4
+        with:
+          name: minecraft-fabric-server-bundle-${{ github.sha }}
+          path: output/server-bundle
+          retention-days: 14
