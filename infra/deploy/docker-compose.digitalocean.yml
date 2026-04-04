@@ -1,0 +1,22 @@
+services:
+  minecraft:
+    image: itzg/minecraft-server:latest
+    container_name: minecraft-server
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    ports:
+      - "25565:25565"
+    environment:
+      EULA: "TRUE"
+      TYPE: "FABRIC"
+      VERSION: "${MC_VERSION:-1.20.1}"
+      FABRIC_LOADER_VERSION: "${FABRIC_LOADER_VERSION:-0.15.11}"
+      MEMORY: "${MC_MEMORY:-4G}"
+      JVM_XX_OPTS: "${JVM_XX_OPTS:--XX:+UseG1GC}"
+    volumes:
+      - /opt/minecraft-server/shared/data:/data
+      - /opt/minecraft-server/shared/mods:/data/mods
+      - /opt/minecraft-server/shared/config:/data/config
+      - /opt/minecraft-server/shared/config/server.properties:/data/server.properties
+      - /opt/minecraft-server/shared/config/eula.txt:/data/eula.txt

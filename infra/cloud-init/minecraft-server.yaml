@@ -1,0 +1,44 @@
+#cloud-config
+package_update: true
+package_upgrade: false
+packages:
+  - ca-certificates
+  - curl
+  - unzip
+  - rsync
+  - ufw
+
+users:
+  - default
+  - name: minecraft
+    system: true
+    shell: /usr/sbin/nologin
+    home: /opt/minecraft-server
+
+write_files:
+  - path: /usr/local/bin/minecraft-init.sh
+    permissions: '0755'
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      install -d -m 0755 /opt/minecraft-server
+      install -d -m 0755 /opt/minecraft-server/releases
+      install -d -m 0755 /opt/minecraft-server/shared
+      install -d -m 0755 /opt/minecraft-server/shared/data
+      install -d -m 0755 /opt/minecraft-server/shared/backups
+      install -d -m 0755 /opt/minecraft-server/shared/config
+      install -d -m 0755 /opt/minecraft-server/shared/mods
+      install -d -m 0755 /opt/minecraft-server/shared/logs
+
+      chown -R root:root /opt/minecraft-server
+
+runcmd:
+  - [bash, -lc, 'if ! command -v docker >/dev/null 2>&1; then curl -fsSL https://get.docker.com | sh; fi']
+  - [bash, -lc, 'mkdir -p /etc/docker']
+  - [bash, -lc, 'systemctl enable --now docker']
+  - [bash, -lc, 'usermod -aG docker root']
+  - [bash, -lc, '/usr/local/bin/minecraft-init.sh']
+
+final_message: "cloud-init complete: Minecraft host bootstrap finished"

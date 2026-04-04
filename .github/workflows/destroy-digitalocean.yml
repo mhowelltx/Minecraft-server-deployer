@@ -1,0 +1,51 @@
+name: Destroy DigitalOcean Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to destroy
+        type: choice
+        options: [dev, prod]
+        default: dev
+      confirm:
+        description: Type DESTROY to confirm
+        required: true
+
+jobs:
+  destroy:
+    if: ${{ github.event.inputs.confirm == 'DESTROY' }}
+    runs-on: ubuntu-latest
+    env:
+      TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Terraform state artifact
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: provision-digitalocean.yml
+          name: terraform-state-${{ github.event.inputs.environment }}
+          path: infra/terraform
+          if_no_artifact_found: fail
+
+      - name: Restore state file path
+        working-directory: infra/terraform
+        run: |
+          mkdir -p state
+          cp "${{ github.event.inputs.environment }}.tfstate" "state/${{ github.event.inputs.environment }}.tfstate"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Terraform init
+        working-directory: infra/terraform
+        run: terraform init -backend-config="path=state/${{ github.event.inputs.environment }}.tfstate"
+
+      - name: Terraform destroy
+        working-directory: infra/terraform
+        run: terraform destroy -auto-approve

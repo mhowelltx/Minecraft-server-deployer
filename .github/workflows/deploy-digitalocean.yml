@@ -1,0 +1,161 @@
+name: Deploy to DigitalOcean
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment
+        type: choice
+        options: [dev, prod]
+        default: dev
+      artifact_source:
+        description: Build new bundle or use latest bundle artifact
+        type: choice
+        options: [build, latest_artifact]
+        default: build
+      run_id:
+        description: Optional workflow run id to download specific bundle artifact
+        required: false
+        default: ''
+      ssh_user:
+        description: SSH user on DigitalOcean VM
+        required: false
+        default: root
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_ENV: ${{ github.event.inputs.environment }}
+      SSH_USER: ${{ github.event.inputs.ssh_user }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        if: ${{ github.event.inputs.artifact_source == 'build' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Java
+        if: ${{ github.event.inputs.artifact_source == 'build' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build Fabric bundle
+        if: ${{ github.event.inputs.artifact_source == 'build' }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python scripts/build_fabric_server.py
+          mv output/server-bundle server-bundle
+
+      - name: Download latest Fabric artifact
+        if: ${{ github.event.inputs.artifact_source == 'latest_artifact' && github.event.inputs.run_id == '' }}
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: build-fabric-server-pack.yml
+          name: minecraft-fabric-server-bundle
+          path: server-bundle
+          if_no_artifact_found: fail
+
+      - name: Download specific Fabric artifact from run
+        if: ${{ github.event.inputs.artifact_source == 'latest_artifact' && github.event.inputs.run_id != '' }}
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          run_id: ${{ github.event.inputs.run_id }}
+          name: minecraft-fabric-server-bundle
+          path: server-bundle
+          if_no_artifact_found: fail
+
+      - name: Download Terraform state artifact
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: provision-digitalocean.yml
+          name: terraform-state-${{ github.event.inputs.environment }}
+          path: infra/terraform-artifact
+          if_no_artifact_found: fail
+
+      - name: Resolve server IP from Terraform outputs
+        id: tf
+        run: |
+          OUTPUTS_FILE="infra/terraform-artifact/outputs-${DEPLOY_ENV}.json"
+          if [ ! -f "${OUTPUTS_FILE}" ]; then
+            echo "Missing Terraform outputs file: ${OUTPUTS_FILE}" >&2
+            exit 1
+          fi
+          SERVER_IP=$(python - <<'PY'
+          import json
+          import os
+          with open('infra/terraform-artifact/outputs-' + os.environ['DEPLOY_ENV'] + '.json', 'r', encoding='utf-8') as f:
+              outputs = json.load(f)
+          print(outputs['server_public_ipv4']['value'])
+          PY
+          )
+          echo "server_ip=${SERVER_IP}" >> "$GITHUB_OUTPUT"
+
+      - name: Add SSH private key
+        run: |
+          install -m 0700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Setup known_hosts
+        run: |
+          install -m 0700 -d ~/.ssh
+          if [ -n "${{ secrets.SSH_KNOWN_HOSTS }}" ]; then
+            printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -H "${{ steps.tf.outputs.server_ip }}" >> ~/.ssh/known_hosts
+          fi
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Prepare release metadata
+        run: |
+          RELEASE_ID="$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA::7}"
+          echo "RELEASE_ID=${RELEASE_ID}" >> $GITHUB_ENV
+          mkdir -p server-bundle
+          cp infra/deploy/docker-compose.digitalocean.yml server-bundle/docker-compose.digitalocean.yml
+          cat > server-bundle/.env <<ENV
+          MC_VERSION=$(python - <<'PY'
+          import yaml
+          with open('server-config.yaml', 'r', encoding='utf-8') as f:
+              cfg = yaml.safe_load(f)
+          print(cfg['server']['minecraft_version'])
+          PY
+          )
+          FABRIC_LOADER_VERSION=$(python - <<'PY'
+          import yaml
+          with open('server-config.yaml', 'r', encoding='utf-8') as f:
+              cfg = yaml.safe_load(f)
+          print(cfg['server']['loader_version'])
+          PY
+          )
+          MC_MEMORY=$(python - <<'PY'
+          import yaml
+          with open('server-config.yaml', 'r', encoding='utf-8') as f:
+              cfg = yaml.safe_load(f)
+          print(cfg['server']['java_memory']['max'])
+          PY
+          )
+          JVM_XX_OPTS=-XX:+UseG1GC
+          ENV
+
+      - name: Upload release bundle to server
+        run: |
+          REMOTE_RELEASE="/opt/minecraft-server/releases/${RELEASE_ID}"
+          ssh "${SSH_USER}@${{ steps.tf.outputs.server_ip }}" "mkdir -p ${REMOTE_RELEASE}"
+          rsync -az --delete \
+            -e "ssh -o StrictHostKeyChecking=yes" \
+            server-bundle/ "${SSH_USER}@${{ steps.tf.outputs.server_ip }}:${REMOTE_RELEASE}/"
+          scp -o StrictHostKeyChecking=yes infra/deploy/deploy-release.sh "${SSH_USER}@${{ steps.tf.outputs.server_ip }}:/tmp/deploy-release.sh"
+          ssh "${SSH_USER}@${{ steps.tf.outputs.server_ip }}" "chmod +x /tmp/deploy-release.sh && /tmp/deploy-release.sh ${REMOTE_RELEASE}"
+
+      - name: Post-deploy verification
+        run: |
+          ssh "${SSH_USER}@${{ steps.tf.outputs.server_ip }}" "docker ps --filter name=minecraft-server --format '{{.Names}} {{.Status}}'"
+          echo "Deployment complete: ${{ steps.tf.outputs.server_ip }}"
