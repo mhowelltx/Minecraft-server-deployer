@@ -1,6 +1,6 @@
 services:
   minecraft:
-    image: itzg/minecraft-server:latest
+    image: itzg/minecraft-server:java21
     container_name: minecraft-server
     restart: unless-stopped
     tty: true
