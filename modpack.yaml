@@ -1,5 +1,0 @@
-modpack:
-  source: "curseforge"
-  slug: "beyond-depth"   # CurseForge project slug — project ID is resolved automatically at build time
-  file_id: ""            # Leave blank to download the latest available file
-  game_id: 432           # 432 = Minecraft (CurseForge constant, do not change)
