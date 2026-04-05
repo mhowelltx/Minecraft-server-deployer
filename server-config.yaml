@@ -4,8 +4,8 @@ server:
   loader: "fabric" # vanilla | fabric | forge | neoforge | paper | purpur
   loader_version: "0.15.11"
   java_memory:
-    min: "2G"
-    max: "4G"
+    min: "1G"
+    max: "3G"
   motd: "A server built with Minecraft Server Deployer"
   level_seed: ""
   difficulty: "normal"
