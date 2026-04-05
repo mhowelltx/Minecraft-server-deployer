@@ -11,7 +11,7 @@ services:
       EULA: "TRUE"
       TYPE: "FABRIC"
       VERSION: "${MC_VERSION:-1.20.1}"
-      FABRIC_LOADER_VERSION: "${FABRIC_LOADER_VERSION:-0.15.11}"
+      FABRIC_LOADER_VERSION: "${FABRIC_LOADER_VERSION:-0.17.2}"
       MEMORY: "${MC_MEMORY:-4G}"
       JVM_XX_OPTS: "${JVM_XX_OPTS:--XX:+UseG1GC}"
     volumes:

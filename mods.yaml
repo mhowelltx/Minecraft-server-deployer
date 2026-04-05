@@ -144,6 +144,31 @@ mods:
     filename: ""
     required: false
 
+  # ── Required libraries ───────────────────────────────────────────────────
+  # Animation library required by Naturalist.
+  - name: "geckolib"
+    source: "modrinth"
+    project_id: "geckolib"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # Utility library required by Serene Seasons.
+  - name: "glitchcore"
+    source: "modrinth"
+    project_id: "glitchcore"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # Multi-platform library required by Waystones.
+  - name: "balm"
+    source: "modrinth"
+    project_id: "balm"
+    version_id: ""
+    filename: ""
+    required: false
+
   # ── Performance ───────────────────────────────────────────────────────────
   - name: "lithium"
     source: "modrinth"
