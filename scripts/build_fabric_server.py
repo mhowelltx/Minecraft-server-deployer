@@ -345,6 +345,15 @@ def _get_curseforge_file_info(project_id: int, file_id: int, api_key: str) -> Di
     return response.json()["data"]
 
 
+def _cf_cdn_url(file_id: int, filename: str) -> str:
+    """Construct the CurseForge CDN URL for a file when the API downloadUrl is null.
+
+    Many mod authors disable API redistribution but their files remain accessible
+    on the CurseForge CDN using this deterministic URL pattern.
+    """
+    return f"https://edge.forgecdn.net/files/{file_id // 1000}/{file_id % 1000}/{filename}"
+
+
 def _get_latest_curseforge_file(project_id: int, api_key: str) -> Dict[str, Any]:
     url = f"{CURSEFORGE_API_BASE}/mods/{project_id}/files"
     params = {"pageSize": 1, "sortField": 5, "sortOrder": "desc"}  # sortField 5 = DateCreated
@@ -415,6 +424,7 @@ def install_curseforge_modpack(
 
     # Download each mod listed in the manifest
     installed: List[Dict[str, str]] = []
+    skipped: List[str] = []
     mod_entries: List[Dict[str, Any]] = manifest.get("files", [])
     total = len(mod_entries)
     print(f"Downloading {total} mods from modpack manifest...")
@@ -422,15 +432,11 @@ def install_curseforge_modpack(
     for idx, entry in enumerate(mod_entries, start=1):
         mod_project_id = entry["projectID"]
         mod_file_id = entry["fileID"]
-        required = entry.get("required", True)
 
         try:
             file_info = _get_curseforge_file_info(mod_project_id, mod_file_id, api_key)
-            download_url = file_info.get("downloadUrl")
             filename = file_info.get("fileName", f"{mod_project_id}-{mod_file_id}.jar")
-
-            if not download_url:
-                raise RuntimeError("no downloadUrl (distribution-restricted)")
+            download_url = file_info.get("downloadUrl") or _cf_cdn_url(mod_file_id, filename)
 
             dest = output_dir / "mods" / filename
             download_file(download_url, dest)
@@ -443,13 +449,19 @@ def install_curseforge_modpack(
             })
             print(f"  [{idx}/{total}] {filename}")
         except Exception as exc:
-            if required:
-                raise RuntimeError(
-                    f"Failed to download required mod (project={mod_project_id}, file={mod_file_id}): {exc}"
-                ) from exc
-            print(f"  [{idx}/{total}] SKIP optional mod project={mod_project_id}: {exc}")
+            # Distribution-restricted mods cannot be downloaded automatically regardless
+            # of the manifest's required flag — log and continue rather than aborting.
+            label = f"project={mod_project_id} file={mod_file_id}"
+            skipped.append(label)
+            print(f"  [{idx}/{total}] SKIP {label}: {exc}")
 
-    print(f"Modpack install complete: {len(installed)}/{total} mods downloaded.")
+    if skipped:
+        print(f"\nWARNING: {len(skipped)} mod(s) could not be downloaded (distribution-restricted):")
+        for s in skipped:
+            print(f"  - {s}")
+        print("These must be added manually to the server's mods/ folder.")
+
+    print(f"\nModpack install complete: {len(installed)}/{total} mods downloaded, {len(skipped)} skipped.")
     return installed
 
 
