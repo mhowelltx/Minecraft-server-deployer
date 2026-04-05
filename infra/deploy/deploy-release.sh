@@ -3,6 +3,24 @@ set -euo pipefail
 
 release_dir="$1"
 
+# ── Wait for cloud-init and apt locks ────────────────────────────────────────
+# On a freshly provisioned server, cloud-init may still be running apt-get.
+# Wait for it to finish before we attempt any package operations.
+if command -v cloud-init >/dev/null 2>&1; then
+    echo "Waiting for cloud-init to complete..."
+    cloud-init status --wait 2>/dev/null || true
+fi
+
+# Belt-and-suspenders: wait for dpkg/apt lock files to be released.
+echo "Waiting for apt/dpkg locks to clear..."
+for i in $(seq 1 24); do
+    if ! lsof /var/lib/apt/lists/lock /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend 2>/dev/null | grep -q .; then
+        break
+    fi
+    echo "  Lock held — waiting (${i}/24)..."
+    sleep 5
+done
+
 # ── Ensure Docker + Compose plugin are available ─────────────────────────────
 if ! command -v docker >/dev/null 2>&1; then
     echo "Docker not found — installing..."
