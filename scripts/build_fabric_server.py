@@ -318,18 +318,23 @@ def load_modpack_config() -> Optional[Dict[str, Any]]:
 
 
 def _cf_headers(api_key: str) -> Dict[str, str]:
-    return {"x-api-key": api_key, "User-Agent": USER_AGENT}
+    return {
+        "x-api-key": api_key,
+        "Accept": "application/json",
+        "User-Agent": USER_AGENT,
+    }
 
 
 def resolve_curseforge_project_id(slug: str, game_id: int, api_key: str) -> int:
     """Resolve a CurseForge project slug to a numeric project ID."""
     url = f"{CURSEFORGE_API_BASE}/mods/search"
-    params = {"gameId": game_id, "slug": slug}
+    # classId 4471 = Modpacks on CurseForge (narrows search, avoids collisions with same-named mods)
+    params = {"gameId": game_id, "classId": 4471, "slug": slug}
     response = requests.get(url, params=params, headers=_cf_headers(api_key), timeout=30)
     response.raise_for_status()
     results = response.json().get("data", [])
     if not results:
-        raise RuntimeError(f"CurseForge: no project found for slug '{slug}' (gameId={game_id}).")
+        raise RuntimeError(f"CurseForge: no modpack found for slug '{slug}' (gameId={game_id}).")
     return int(results[0]["id"])
 
 
