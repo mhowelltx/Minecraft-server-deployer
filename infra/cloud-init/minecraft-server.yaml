@@ -37,6 +37,7 @@ write_files:
 runcmd:
   - [bash, -lc, 'if ! command -v docker >/dev/null 2>&1; then curl -fsSL https://get.docker.com | sh; fi']
   - [bash, -lc, 'mkdir -p /etc/docker']
+  - [bash, -lc, 'apt-get install -y docker-compose-plugin']
   - [bash, -lc, 'systemctl enable --now docker']
   - [bash, -lc, 'usermod -aG docker root']
   - [bash, -lc, '/usr/local/bin/minecraft-init.sh']

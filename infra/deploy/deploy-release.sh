@@ -3,6 +3,19 @@ set -euo pipefail
 
 release_dir="$1"
 
+# ── Ensure Docker + Compose plugin are available ─────────────────────────────
+if ! command -v docker >/dev/null 2>&1; then
+    echo "Docker not found — installing..."
+    curl -fsSL https://get.docker.com | sh
+    systemctl enable --now docker
+fi
+
+if ! docker compose version >/dev/null 2>&1; then
+    echo "Docker Compose plugin not found — installing..."
+    apt-get update -qq
+    apt-get install -y -qq docker-compose-plugin
+fi
+
 base_dir="/opt/minecraft-server"
 shared_dir="${base_dir}/shared"
 current_link="${base_dir}/current"
