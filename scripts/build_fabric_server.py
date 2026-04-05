@@ -129,6 +129,8 @@ def fetch_modrinth_versions(project_id: str, minecraft_version: str, loader: str
         headers={"User-Agent": USER_AGENT},
         timeout=30,
     )
+    if response.status_code == 404:
+        return []  # Project slug not found on Modrinth — skip gracefully
     response.raise_for_status()
     versions = response.json()
     filtered = []
@@ -193,10 +195,18 @@ def install_mods(output_dir: Path, server_cfg: Dict[str, Any], mods_cfg: Dict[st
     for mod in mods_cfg.get("mods", []):
         if mod.get("source") != "modrinth":
             continue
-        resolved = resolve_modrinth_mod(mod, minecraft_version, loader)
+        name = mod.get("name", mod.get("project_id", "unknown"))
+        try:
+            resolved = resolve_modrinth_mod(mod, minecraft_version, loader)
+        except Exception as exc:
+            if mod.get("required", False):
+                raise RuntimeError(f"Could not resolve required mod '{name}': {exc}") from exc
+            print(f"  SKIP '{name}': {exc}")
+            continue
         if not resolved:
             if mod.get("required", False):
-                raise RuntimeError(f"Could not resolve required mod: {mod.get('name', 'unknown')}")
+                raise RuntimeError(f"Could not resolve required mod '{name}': no compatible version found")
+            print(f"  SKIP '{name}': no compatible version for mc={minecraft_version} loader={loader}")
             continue
         dest = output_dir / "mods" / resolved["filename"]
         download_file(resolved["url"], dest)
@@ -207,6 +217,7 @@ def install_mods(output_dir: Path, server_cfg: Dict[str, Any], mods_cfg: Dict[st
             "project_id": resolved["project_id"],
             "version_id": resolved["version_id"],
         })
+        print(f"  OK  '{name}': {resolved['filename']}")
 
     return installed
 
