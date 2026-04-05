@@ -18,6 +18,7 @@ on:
       - 'scripts/**'
       - 'server-config.yaml'
       - 'mods.yaml'
+      - 'modpack.yaml'
       - 'requirements.txt'
 
 jobs:
@@ -45,6 +46,8 @@ jobs:
 
       - name: Build Fabric server bundle
         run: python scripts/build_fabric_server.py
+        env:
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
 
       - name: Upload bundle artifact (latest)
         uses: actions/upload-artifact@v4
