@@ -1,3 +1,153 @@
-mods: []
-# Mod list is managed by modpack.yaml (Beyond Depth CurseForge modpack).
-# Add entries here only for mods that are NOT part of the modpack.
+mods:
+  # ── Core requirement ──────────────────────────────────────────────────────
+  - name: "fabric-api"
+    source: "modrinth"
+    project_id: "P7dR8mSH"
+    version_id: ""
+    filename: ""
+    required: true
+
+  # ── Farming & cooking ─────────────────────────────────────────────────────
+  # Backbone farming/cooking mod — expands crops, cutting boards, stoves, and
+  # multi-step recipes without forcing heavy grind progression.
+  - name: "farmers-delight"
+    source: "modrinth"
+    project_id: "farmers-delight-refabricated"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # 58 crops, 26 fruit trees, 250+ food items. More things to grow and cook.
+  - name: "croptopia"
+    source: "modrinth"
+    project_id: "croptopia"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # Bridges Croptopia ingredients into Farmer's Delight recipes so the two
+  # food systems feel like one instead of sitting side-by-side.
+  - name: "croptopia-delight"
+    source: "modrinth"
+    project_id: "croptopia-delight"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # ── Fishing ───────────────────────────────────────────────────────────────
+  # Biome-specific fish, rods, tackle boxes, and cooking recipes.
+  # Makes fishing a real activity rather than an idle side mechanic.
+  - name: "aquaculture-2"
+    source: "modrinth"
+    project_id: "aquaculture"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # Feeds Aquaculture 2 catches into Farmer's Delight cooking recipes.
+  - name: "aquaculture-delight"
+    source: "modrinth"
+    project_id: "aquaculture-delight"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # ── Light automation ──────────────────────────────────────────────────────
+  # Building-friendly mechanical automation (belts, funnels, windmills).
+  # Fits the cozy/homestead aesthetic far better than tech-pack machines.
+  - name: "create"
+    source: "modrinth"
+    project_id: "create-fabric"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # ── World flavor ──────────────────────────────────────────────────────────
+  # More animals and wildlife — makes the open world feel alive.
+  - name: "naturalist"
+    source: "modrinth"
+    project_id: "naturalist"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # Seasonal foliage, weather shifts, and crop growth tied to seasons.
+  # Adds immersion and makes farming feel grounded in the world.
+  - name: "serene-seasons"
+    source: "modrinth"
+    project_id: "serene-seasons"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # ── Building & decoration ─────────────────────────────────────────────────
+  # Vanilla-styled furniture: chairs, tables, shelves, cabinets.
+  # Clean aesthetic, no modern-tech look.
+  - name: "another-furniture"
+    source: "modrinth"
+    project_id: "another-furniture"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # Required library for Supplementaries.
+  - name: "moonlight-lib"
+    source: "modrinth"
+    project_id: "moonlight-lib"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # Fills vanilla gaps with decorative/practical blocks: jars, planters,
+  # faucets, signposts, rope, lights — perfect for farmhouses and markets.
+  - name: "supplementaries"
+    source: "modrinth"
+    project_id: "supplementaries"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # ── Quality of life ───────────────────────────────────────────────────────
+  # Waystone fast-travel points. Near-essential on casual multiplayer so
+  # farms, fishing spots, and towns feel connected rather than isolated.
+  - name: "waystones"
+    source: "modrinth"
+    project_id: "waystones"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # In-game recipe browser — lets players find and use all mod content
+  # without alt-tabbing to a wiki.
+  - name: "jei"
+    source: "modrinth"
+    project_id: "jei"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # HUD tooltip showing what you're looking at: crops, containers, modded
+  # blocks. Essential once multiple cozy mods are layered together.
+  - name: "jade"
+    source: "modrinth"
+    project_id: "jade"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # Sleeping bags and hammocks — lets travellers rest without resetting
+  # their home spawn point accidentally.
+  - name: "comforts"
+    source: "modrinth"
+    project_id: "comforts"
+    version_id: ""
+    filename: ""
+    required: false
+
+  # ── Performance ───────────────────────────────────────────────────────────
+  - name: "lithium"
+    source: "modrinth"
+    project_id: "gvQqBUqZ"
+    version_id: ""
+    filename: ""
+    required: false
