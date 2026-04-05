@@ -60,6 +60,7 @@ def build_server_properties(server_cfg: Dict[str, Any]) -> str:
         f"view-distance={server_cfg.get('view_distance', 10)}",
         f"simulation-distance={server_cfg.get('simulation_distance', 10)}",
         f"enable-command-block={truthy(server_cfg.get('enable_command_block', False))}",
+        f"force-gamemode={truthy(server_cfg.get('force_gamemode', False))}",
         f"white-list={truthy(server_cfg.get('white_list', False))}",
         f"spawn-protection={server_cfg.get('spawn_protection', 0)}",
         f"server-port={server_cfg.get('server_port', 25565)}",
