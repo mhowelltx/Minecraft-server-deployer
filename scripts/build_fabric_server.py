@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import stat
 import subprocess
+import tempfile
+import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -16,10 +19,12 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "server-config.yaml"
 MODS_PATH = ROOT / "mods.yaml"
+MODPACK_PATH = ROOT / "modpack.yaml"
 USER_AGENT = "minecraft-server-deployer/fabric-bootstrap-0.1"
 MODRINTH_PROJECT_API = "https://api.modrinth.com/v2/project/{project_id}/version"
 FABRIC_INSTALLER_VERSIONS = "https://meta.fabricmc.net/v2/versions/installer"
 FABRIC_INSTALLER_MAVEN = "https://maven.fabricmc.net/net/fabricmc/fabric-installer/{version}/fabric-installer-{version}.jar"
+CURSEFORGE_API_BASE = "https://api.curseforge.com/v1"
 
 
 def load_yaml(path: Path) -> Dict[str, Any]:
@@ -305,6 +310,144 @@ def build_docker_files(output_dir: Path, server_cfg: Dict[str, Any]) -> None:
     write_text(output_dir / "Dockerfile", "FROM itzg/minecraft-server:latest\n")
 
 
+def load_modpack_config() -> Optional[Dict[str, Any]]:
+    """Return modpack.yaml contents, or None if the file does not exist."""
+    if not MODPACK_PATH.exists():
+        return None
+    return load_yaml(MODPACK_PATH)
+
+
+def _cf_headers(api_key: str) -> Dict[str, str]:
+    return {"x-api-key": api_key, "User-Agent": USER_AGENT}
+
+
+def resolve_curseforge_project_id(slug: str, game_id: int, api_key: str) -> int:
+    """Resolve a CurseForge project slug to a numeric project ID."""
+    url = f"{CURSEFORGE_API_BASE}/mods/search"
+    params = {"gameId": game_id, "slug": slug}
+    response = requests.get(url, params=params, headers=_cf_headers(api_key), timeout=30)
+    response.raise_for_status()
+    results = response.json().get("data", [])
+    if not results:
+        raise RuntimeError(f"CurseForge: no project found for slug '{slug}' (gameId={game_id}).")
+    return int(results[0]["id"])
+
+
+def _get_curseforge_file_info(project_id: int, file_id: int, api_key: str) -> Dict[str, Any]:
+    url = f"{CURSEFORGE_API_BASE}/mods/{project_id}/files/{file_id}"
+    response = requests.get(url, headers=_cf_headers(api_key), timeout=30)
+    response.raise_for_status()
+    return response.json()["data"]
+
+
+def _get_latest_curseforge_file(project_id: int, api_key: str) -> Dict[str, Any]:
+    url = f"{CURSEFORGE_API_BASE}/mods/{project_id}/files"
+    params = {"pageSize": 1, "sortField": 5, "sortOrder": "desc"}  # sortField 5 = DateCreated
+    response = requests.get(url, params=params, headers=_cf_headers(api_key), timeout=30)
+    response.raise_for_status()
+    files = response.json().get("data", [])
+    if not files:
+        raise RuntimeError(f"CurseForge: no files found for project {project_id}.")
+    return files[0]
+
+
+def download_curseforge_modpack_zip(
+    project_id: int, file_id: Optional[int], api_key: str, dest_path: Path
+) -> None:
+    """Download a CurseForge modpack ZIP to dest_path."""
+    if file_id:
+        file_info = _get_curseforge_file_info(project_id, file_id, api_key)
+    else:
+        file_info = _get_latest_curseforge_file(project_id, api_key)
+
+    download_url = file_info.get("downloadUrl")
+    if not download_url:
+        raise RuntimeError(
+            f"CurseForge: no downloadUrl for project {project_id} file {file_info.get('id')}. "
+            "The file may be distribution-restricted."
+        )
+    download_file(download_url, dest_path)
+
+
+def install_curseforge_modpack(
+    output_dir: Path, modpack_cfg: Dict[str, Any], api_key: str
+) -> List[Dict[str, str]]:
+    """
+    Download the Beyond Depth (or any CurseForge) modpack, parse its manifest,
+    download every mod JAR, and copy the overrides folder into the bundle.
+    Returns a list of installed mod dicts compatible with the existing manifest schema.
+    """
+    slug = modpack_cfg["slug"]
+    game_id = int(modpack_cfg.get("game_id", 432))
+    raw_file_id = modpack_cfg.get("file_id", "")
+    file_id: Optional[int] = int(raw_file_id) if raw_file_id else None
+
+    print(f"Resolving CurseForge project ID for slug '{slug}'...")
+    project_id = resolve_curseforge_project_id(slug, game_id, api_key)
+    print(f"  -> project ID: {project_id}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        zip_path = tmp_path / "modpack.zip"
+
+        print(f"Downloading modpack ZIP (project={project_id}, file={file_id or 'latest'})...")
+        download_curseforge_modpack_zip(project_id, file_id, api_key, zip_path)
+
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            # Extract manifest.json
+            manifest_bytes = zf.read("manifest.json")
+            manifest: Dict[str, Any] = json.loads(manifest_bytes)
+
+            # Copy overrides/ (configs, datapacks, etc.) into the bundle root
+            overrides_prefix = manifest.get("overrides", "overrides") + "/"
+            for member in zf.namelist():
+                if member.startswith(overrides_prefix) and not member.endswith("/"):
+                    rel = member[len(overrides_prefix):]
+                    dest = output_dir / rel
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(member) as src, dest.open("wb") as dst:
+                        shutil.copyfileobj(src, dst)
+
+    # Download each mod listed in the manifest
+    installed: List[Dict[str, str]] = []
+    mod_entries: List[Dict[str, Any]] = manifest.get("files", [])
+    total = len(mod_entries)
+    print(f"Downloading {total} mods from modpack manifest...")
+
+    for idx, entry in enumerate(mod_entries, start=1):
+        mod_project_id = entry["projectID"]
+        mod_file_id = entry["fileID"]
+        required = entry.get("required", True)
+
+        try:
+            file_info = _get_curseforge_file_info(mod_project_id, mod_file_id, api_key)
+            download_url = file_info.get("downloadUrl")
+            filename = file_info.get("fileName", f"{mod_project_id}-{mod_file_id}.jar")
+
+            if not download_url:
+                raise RuntimeError("no downloadUrl (distribution-restricted)")
+
+            dest = output_dir / "mods" / filename
+            download_file(download_url, dest)
+            installed.append({
+                "name": file_info.get("displayName", filename),
+                "filename": filename,
+                "source": "curseforge",
+                "project_id": str(mod_project_id),
+                "version_id": str(mod_file_id),
+            })
+            print(f"  [{idx}/{total}] {filename}")
+        except Exception as exc:
+            if required:
+                raise RuntimeError(
+                    f"Failed to download required mod (project={mod_project_id}, file={mod_file_id}): {exc}"
+                ) from exc
+            print(f"  [{idx}/{total}] SKIP optional mod project={mod_project_id}: {exc}")
+
+    print(f"Modpack install complete: {len(installed)}/{total} mods downloaded.")
+    return installed
+
+
 def main() -> None:
     config = load_yaml(CONFIG_PATH)
     mods = load_yaml(MODS_PATH)
@@ -318,7 +461,19 @@ def main() -> None:
     write_text(output_dir / "server.properties", build_server_properties(server_cfg))
     bootstrap = bootstrap_fabric_server(output_dir, server_cfg)
     bootstrap["status"] = "ok"
-    installed_mods = install_mods(output_dir, server_cfg, mods, source_cfg)
+
+    modpack_config = load_modpack_config()
+    if modpack_config and modpack_config.get("modpack", {}).get("source") == "curseforge":
+        api_key = os.environ.get("CURSEFORGE_API_KEY", "")
+        if not api_key:
+            raise RuntimeError(
+                "CURSEFORGE_API_KEY environment variable is required for modpack installation. "
+                "Obtain a free key at https://console.curseforge.com and set it before running."
+            )
+        installed_mods = install_curseforge_modpack(output_dir, modpack_config["modpack"], api_key)
+    else:
+        installed_mods = install_mods(output_dir, server_cfg, mods, source_cfg)
+
     launcher = build_start_scripts(output_dir, server_cfg)
 
     if packaging_cfg.get("include_docker", True):

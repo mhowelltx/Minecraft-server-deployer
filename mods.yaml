@@ -1,34 +1,3 @@
-mods:
-  # Core API - required by most Fabric mods
-  - name: "fabric-api"
-    source: "modrinth"
-    project_id: "P7dR8mSH"
-    version_id: ""
-    filename: ""
-    required: true
-
-  # Performance optimization
-  - name: "lithium"
-    source: "modrinth"
-    project_id: "gvQqBUqZ"
-    version_id: ""
-    filename: ""
-    required: false
-
-  # Roughly Enough Items - in-game item browser so players can instantly find
-  # and grab any weapon, armor, tool, or block from the creative inventory
-  - name: "roughly-enough-items"
-    source: "modrinth"
-    project_id: "nfn13YXA"
-    version_id: ""
-    filename: ""
-    required: false
-
-  # WorldEdit - select, copy, paste, and fill regions; great for building
-  # and quickly placing structures in creative mode
-  - name: "worldedit"
-    source: "modrinth"
-    project_id: "Lu3KuzdV"
-    version_id: ""
-    filename: ""
-    required: false
+mods: []
+# Mod list is managed by modpack.yaml (Beyond Depth CurseForge modpack).
+# Add entries here only for mods that are NOT part of the modpack.
