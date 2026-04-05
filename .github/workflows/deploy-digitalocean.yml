@@ -120,30 +120,15 @@ jobs:
           echo "RELEASE_ID=${RELEASE_ID}" >> $GITHUB_ENV
           mkdir -p server-bundle
           cp infra/deploy/docker-compose.digitalocean.yml server-bundle/docker-compose.digitalocean.yml
-          cat > server-bundle/.env <<ENV
-          MC_VERSION=$(python - <<'PY'
-          import yaml
-          with open('server-config.yaml', 'r', encoding='utf-8') as f:
-              cfg = yaml.safe_load(f)
-          print(cfg['server']['minecraft_version'])
-          PY
-          )
-          FABRIC_LOADER_VERSION=$(python - <<'PY'
-          import yaml
-          with open('server-config.yaml', 'r', encoding='utf-8') as f:
-              cfg = yaml.safe_load(f)
-          print(cfg['server']['loader_version'])
-          PY
-          )
-          MC_MEMORY=$(python - <<'PY'
-          import yaml
-          with open('server-config.yaml', 'r', encoding='utf-8') as f:
-              cfg = yaml.safe_load(f)
-          print(cfg['server']['java_memory']['max'])
-          PY
-          )
-          JVM_XX_OPTS=-XX:+UseG1GC
-          ENV
+          python - > server-bundle/.env <<'PY'
+import yaml
+with open('server-config.yaml', 'r', encoding='utf-8') as f:
+    cfg = yaml.safe_load(f)['server']
+print(f"MC_VERSION={cfg['minecraft_version']}")
+print(f"FABRIC_LOADER_VERSION={cfg['loader_version']}")
+print(f"MC_MEMORY={cfg['java_memory']['max']}")
+print("JVM_XX_OPTS=-XX:+UseG1GC")
+PY
 
       - name: Upload release bundle to server
         run: |
